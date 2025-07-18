@@ -1,0 +1,17 @@
+version: "3"
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend/users.json:/app/users.json
+    environment:
+      - PYTHONUNBUFFERED=1
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
