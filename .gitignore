@@ -39,3 +39,6 @@ coverage.xml
 *.swp
 *.swo
 *~
+
+# Files
+backend/users.json

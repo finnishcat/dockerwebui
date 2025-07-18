@@ -16,7 +16,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-USERS_FILE = "users.json"
+USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
 def ensure_users_file():
     """Create a default users.json file with admin user if it does not exist (development only)."""
