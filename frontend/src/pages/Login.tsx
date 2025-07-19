@@ -66,28 +66,44 @@ const Login = () => {
             <input
               type="text"
               id="username"
-              className="w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent peer transition"
+              className="peer w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent transition"
               value={username}
               onChange={e => setUsername(e.target.value)}
               autoFocus
               placeholder="Username"
               required
             />
-            <label htmlFor="username" className={`absolute left-10 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-all duration-200 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500 peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 ${username ? '-top-3 text-xs text-blue-500' : ''}`}>Username</label>
+            <label
+              htmlFor="username"
+              className={`absolute left-10 pointer-events-none transition-all duration-200 \
+                ${username
+                  ? '-top-3 text-xs text-blue-500'
+                  : 'top-1/2 -translate-y-1/2 text-base text-gray-400 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500'}`}
+            >
+              Username
+            </label>
           </div>
           <div className="mb-7 relative">
             <FaLock className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-lg" />
             <input
               type="password"
               id="password"
-              className="w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent peer transition"
+              className="peer w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent transition"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleLogin()}
               placeholder="Password"
               required
             />
-            <label htmlFor="password" className={`absolute left-10 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-all duration-200 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500 peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 ${password ? '-top-3 text-xs text-blue-500' : ''}`}>Password</label>
+            <label
+              htmlFor="password"
+              className={`absolute left-10 pointer-events-none transition-all duration-200 \
+                ${password
+                  ? '-top-3 text-xs text-blue-500'
+                  : 'top-1/2 -translate-y-1/2 text-base text-gray-400 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500'}`}
+            >
+              Password
+            </label>
           </div>
           <button
             className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 text-lg transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400"
