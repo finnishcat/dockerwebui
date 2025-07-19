@@ -1,28 +1,26 @@
 // pages/Login.tsx - Login con sfondo dinamico
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-const backgrounds = [
-  "https://source.unsplash.com/random/1920x1080?sea",
-  "https://source.unsplash.com/random/1920x1080?mountains",
-  "https://source.unsplash.com/random/1920x1080?forest"
-];
+import { FaUser, FaLock, FaSignInAlt } from "react-icons/fa";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [bg, setBg] = useState("");
+  const [bg, setBg] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Cambia sfondo a ogni mount
   useEffect(() => {
-    const randomBg = backgrounds[Math.floor(Math.random() * backgrounds.length)];
-    setBg(randomBg);
+    // Unsplash random landscape, 1920x1080, high quality
+    const url = `https://source.unsplash.com/random/1920x1080/?landscape,nature,relax`;
+    setBg(url + "&" + new Date().getTime()); // forzare il refresh
   }, []);
 
   const handleLogin = async () => {
     setError(null);
-    const res = await fetch("http://localhost:8000/auth/login", {
+    const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+    const res = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ username, password })
@@ -37,15 +35,72 @@ const Login = () => {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-cover bg-center" style={{ backgroundImage: `url(${bg})` }}>
-      <div className="bg-white bg-opacity-80 p-8 rounded-xl shadow-lg">
-        <h2 className="text-2xl mb-4 font-semibold text-center">Login</h2>
-        {error && (
-          <div className="mb-3 p-2 bg-red-100 text-red-700 rounded text-center">{error}</div>
-        )}
-        <input type="text" placeholder="Username" className="mb-3 w-full p-2 rounded" onChange={(e) => setUsername(e.target.value)} />
-        <input type="password" placeholder="Password" className="mb-3 w-full p-2 rounded" onChange={(e) => setPassword(e.target.value)} />
-        <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700" onClick={handleLogin}>Login</button>
+    <div
+      className="min-h-screen flex items-center justify-center bg-cover bg-center relative"
+      style={{
+        backgroundImage: `url(${bg})`,
+        backgroundColor: "#222"
+      }}
+    >
+      {/* Overlay sfumato per effetto glassmorphism */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-blue-900/40 to-blue-700/30 backdrop-blur-sm z-0" />
+      <div className="relative z-10 w-full max-w-md">
+        <div className="flex flex-col items-center mb-6">
+          {/* Logo/avatar */}
+          <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center shadow-lg mb-2 border-4 border-white/70">
+            <img src="/docker-logo.png" alt="DockerWebUI" className="w-12 h-12" onError={e => (e.currentTarget.style.display = 'none')} />
+            {/* fallback icona se manca logo */}
+            <span className="absolute text-blue-600 text-4xl"><FaUser /></span>
+          </div>
+          <h2 className="text-3xl font-extrabold text-white drop-shadow mb-1 text-center">Sign in to DockerWebUI</h2>
+          <p className="text-blue-100 text-sm mb-2 text-center">Manage your Docker containers with style</p>
+        </div>
+        <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl">
+          {error && (
+            <div className="mb-4 p-3 bg-red-200/80 text-red-800 rounded text-center font-semibold animate-shake shadow">
+              {error}
+            </div>
+          )}
+          <div className="mb-5 relative">
+            <FaUser className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-lg" />
+            <input
+              type="text"
+              id="username"
+              className="w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent peer transition"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              autoFocus
+              placeholder="Username"
+              required
+            />
+            <label htmlFor="username" className={`absolute left-10 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-all duration-200 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500 peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 ${username ? '-top-3 text-xs text-blue-500' : ''}`}>Username</label>
+          </div>
+          <div className="mb-7 relative">
+            <FaLock className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-lg" />
+            <input
+              type="password"
+              id="password"
+              className="w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent peer transition"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleLogin()}
+              placeholder="Password"
+              required
+            />
+            <label htmlFor="password" className={`absolute left-10 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-all duration-200 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500 peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 ${password ? '-top-3 text-xs text-blue-500' : ''}`}>Password</label>
+          </div>
+          <button
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 text-lg transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            onClick={handleLogin}
+          >
+            <FaSignInAlt className="text-xl" /> Login
+          </button>
+          <div className="mt-6 text-center text-gray-500 text-sm">
+            <span>
+              Need help? <a href="https://github.com/finnishcat/dockerwebui" className="underline hover:text-blue-600">Read the docs</a>
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
