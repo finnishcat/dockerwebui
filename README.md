@@ -56,7 +56,7 @@
    ```sh
    docker-compose up --build
    ```
-   - Frontend: [http://localhost:3000](http://localhost:3000)
+   - Frontend: [http://localhost:3080](http://localhost:3080)
    - Backend API: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
