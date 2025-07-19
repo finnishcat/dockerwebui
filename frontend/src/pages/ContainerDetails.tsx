@@ -2,6 +2,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
 const ContainerDetails = () => {
   const { id } = useParams();
   const [logs, setLogs] = useState("");
@@ -17,7 +19,7 @@ const ContainerDetails = () => {
     setError(null);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8000/docker/stats/local/${id}`, {
+      const res = await fetch(`${API_URL}/docker/stats/local/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error("Error loading stats");
@@ -36,7 +38,7 @@ const ContainerDetails = () => {
     setError(null);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8000/docker/container/${action}/local/${id}`, {
+      const res = await fetch(`${API_URL}/docker/container/${action}/local/${id}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });

@@ -1,6 +1,8 @@
 // pages/Images.tsx
 import React, { useEffect, useState } from "react";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
 const Images = () => {
   const [images, setImages] = useState([]);
   const [newImage, setNewImage] = useState("");
@@ -12,7 +14,7 @@ const Images = () => {
     setError(null);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8000/docker/images/local", {
+      const res = await fetch(`${API_URL}/docker/images/local`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error("Error loading images");
@@ -29,7 +31,7 @@ const Images = () => {
     setError(null);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8000/docker/image/pull/local", {
+      const res = await fetch(`${API_URL}/docker/image/pull/local`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -49,7 +51,7 @@ const Images = () => {
     setError(null);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8000/docker/image/remove/local/${id}`, {
+      const res = await fetch(`${API_URL}/docker/image/remove/local/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
