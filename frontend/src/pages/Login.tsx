@@ -8,6 +8,8 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [bg, setBg] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const navigate = useNavigate();
 
   // Cambia sfondo a ogni mount
@@ -66,9 +68,11 @@ const Login = () => {
             <input
               type="text"
               id="username"
-              className="peer w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent transition"
+              className="peer w-full pl-10 pr-3 py-3 pt-5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent transition"
               value={username}
               onChange={e => setUsername(e.target.value)}
+              onFocus={() => setIsUsernameFocused(true)}
+              onBlur={() => setIsUsernameFocused(false)}
               autoFocus
               placeholder="Username"
               required
@@ -76,9 +80,9 @@ const Login = () => {
             <label
               htmlFor="username"
               className={`absolute left-10 pointer-events-none transition-all duration-200 \
-                ${username
-                  ? '-top-3 text-xs text-blue-500'
-                  : 'top-1/2 -translate-y-1/2 text-base text-gray-400 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500'}`}
+                ${(username || isUsernameFocused)
+                  ? '-top-5 text-xs text-blue-500'
+                  : 'top-1/2 -translate-y-1/2 text-base text-gray-400'}`}
             >
               Username
             </label>
@@ -88,9 +92,11 @@ const Login = () => {
             <input
               type="password"
               id="password"
-              className="peer w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent transition"
+              className="peer w-full pl-10 pr-3 py-3 pt-5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/70 placeholder-transparent transition"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              onFocus={() => setIsPasswordFocused(true)}
+              onBlur={() => setIsPasswordFocused(false)}
               onKeyDown={e => e.key === "Enter" && handleLogin()}
               placeholder="Password"
               required
@@ -98,9 +104,9 @@ const Login = () => {
             <label
               htmlFor="password"
               className={`absolute left-10 pointer-events-none transition-all duration-200 \
-                ${password
-                  ? '-top-3 text-xs text-blue-500'
-                  : 'top-1/2 -translate-y-1/2 text-base text-gray-400 peer-focus:-top-3 peer-focus:text-xs peer-focus:text-blue-500'}`}
+                ${(password || isPasswordFocused)
+                  ? '-top-5 text-xs text-blue-500'
+                  : 'top-1/2 -translate-y-1/2 text-base text-gray-400'}`}
             >
               Password
             </label>
