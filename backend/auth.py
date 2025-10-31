@@ -20,6 +20,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import passlib.handlers.bcrypt
+passlib.handlers.bcrypt.bcrypt.use_builtin_backend()
 
 
 def truncate_password(password: str) -> str:
