@@ -22,8 +22,12 @@ router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    """Hash della password, troncata a 72 caratteri (limite bcrypt)."""
-    return pwd_context.hash(password[:72])
+    """Hash della password, troncata a 72 byte (limite bcrypt)."""
+    pw_bytes = password.encode('utf-8')
+    if len(pw_bytes) > 72:
+        pw_bytes = pw_bytes[:72]
+        password = pw_bytes.decode('utf-8', errors='ignore')
+    return pwd_context.hash(password)
 
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
