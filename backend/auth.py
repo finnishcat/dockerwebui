@@ -19,14 +19,14 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
 def ensure_users_file():
     """Create a default users.json file with admin user if it does not exist (development only)."""
     if not os.path.exists(USERS_FILE):
-        default_password = pwd_context.hash("admin")
+        default_password = pwd_context.hash("admin"[:72])
         with open(USERS_FILE, "w") as f:
             json.dump([{
                 "username": "admin",
@@ -59,7 +59,7 @@ def save_users():
 
 def verify_password(plain_password, hashed_password):
     """Verify that the provided password matches the stored hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(plain_password[:72], hashed_password)
 
 def get_user(username: str):
     """Return the user from the user database given the username."""
@@ -109,7 +109,7 @@ def register(request: RegisterRequest):
     if get_user(request.username):
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    hashed = pwd_context.hash(request.password)
+    hashed = pwd_context.hash(request.password[:72])
     user = {"username": request.username, "password": hashed, "role": "admin"}
     users_db.append(user)
     save_users()
