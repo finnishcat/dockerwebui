@@ -31,10 +31,6 @@ def hash_password(password: str) -> str:
 
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
-def hash_password(password: str) -> str:
-    """Hash password using configured pwd_context (bcrypt_sha256)."""
-    return pwd_context.hash(password)
-
 
 def ensure_users_file():
     """Create a default users.json file with admin user if it does not exist (development only)."""
@@ -76,7 +72,11 @@ def save_users():
 
 def verify_password(plain_password, hashed_password):
     """Verify that the provided password matches the stored hash."""
-    return pwd_context.verify(plain_password[:72], hashed_password)
+    pw_bytes = plain_password.encode('utf-8')
+    if len(pw_bytes) > 72:
+        pw_bytes = pw_bytes[:72]
+        plain_password = pw_bytes.decode('utf-8', errors='ignore')
+    return pwd_context.verify(plain_password, hashed_password)
 
 def get_user(username: str):
     """Return the user from the user database given the username."""
