@@ -3,9 +3,9 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from auth import router as auth_router, ensure_users_file, load_users_db
+from auth import router as auth_router
 from docker_api import router as docker_router
-from websocker import websocket_endpoint
+from websocket_logs import websocket_endpoint
 
 app = FastAPI(
     title="DockerWebUI API",
@@ -42,18 +42,3 @@ app.add_websocket_route("/ws/logs/{node}/{container_id}", websocket_endpoint)
 def read_root():
     """Health check endpoint."""
     return {"status": "healthy", "service": "DockerWebUI API"}
-
-
-# Initialize lightweight auth resources (create default users file in dev) on startup
-@app.on_event("startup")
-def on_startup():
-    # ensure_users_file will create users.json only if it doesn't exist.
-    # Running at startup avoids side-effects during module import / pytest collection.
-    try:
-        ensure_users_file()
-        load_users_db()
-    except Exception:
-        # Avoid breaking application startup for unexpected file issues.
-        # Let exceptions surface in logs; do not raise to keep startup robust.
-        import logging
-        logging.exception("Failed to ensure users file on startup")

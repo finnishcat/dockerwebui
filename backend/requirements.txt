@@ -1,8 +1,11 @@
-fastapi
-uvicorn
-python-jose
-passlib[bcrypt]
-docker
-pytest
-httpx
-python-multipart
+# Backend dependencies with pinned versions for security and stability
+fastapi==0.120.3
+uvicorn[standard]==0.38.0
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+docker==7.1.0
+pytest==8.4.2
+httpx==0.28.1
+python-multipart==0.0.20
+pytest-cov==6.0.0
+pytest-asyncio==0.25.2
