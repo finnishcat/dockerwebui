@@ -13,6 +13,9 @@ def setup_module(module):
     users_file = os.path.join(os.path.dirname(__file__), "users.json")
     if os.path.exists(users_file):
         os.remove(users_file)
+    # Ricrea admin
+    from auth import ensure_users_file
+    ensure_users_file()
 
 def test_login_success():
     """Test successful login with valid credentials."""

@@ -7,6 +7,13 @@ import os
 
 client = TestClient(app)
 
+def setup_module(module):
+    users_file = os.path.join(os.path.dirname(__file__), "users.json")
+    if os.path.exists(users_file):
+        os.remove(users_file)
+    from auth import ensure_users_file
+    ensure_users_file()
+
 def get_valid_token():
     """Helper function to get a valid JWT token."""
     response = client.post("/auth/login", data={"username": "admin", "password": "admin"})

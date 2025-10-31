@@ -4,7 +4,13 @@ import pytest
 
 @pytest.fixture(scope="module")
 def client():
-    """Create TestClient as context manager to trigger startup/shutdown events."""
+    """Create TestClient as context manager to trigger startup/shutdown events. Ricrea admin."""
+    import os
+    users_file = os.path.join(os.path.dirname(__file__), "users.json")
+    if os.path.exists(users_file):
+        os.remove(users_file)
+    from auth import ensure_users_file
+    ensure_users_file()
     with TestClient(app) as c:
         yield c
 
