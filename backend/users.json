@@ -1,7 +1,0 @@
-[
-  {
-    "username": "admin",
-    "password": "$bcrypt-sha256$v=2,t=2b,r=12$8DTxW39QsqgwhhdpJZDxA.$BJ8TJ2ds1ZWd5sbG/laiTCjhonRvIMC",
-    "role": "admin"
-  }
-]
