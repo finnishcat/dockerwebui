@@ -2,26 +2,57 @@
 
 ![CI](https://github.com/finnishcat/dockerwebui/actions/workflows/ci.yml/badge.svg)
 
-**DockerWebUI** is a modern webapp to manage Docker containers with a graphical interface, designed to be simple, fast, and ready to use both locally and in production.
+**DockerWebUI** is a modern, secure web application for managing Docker containers with a graphical interface. Built with security best practices, comprehensive testing, and production-ready features.
+
+---
+
+## ✨ Features
+
+- 🔐 **Secure Authentication:** JWT-based auth with bcrypt password hashing
+- 🐳 **Docker Management:** List, start, stop, restart, and remove containers
+- 📊 **Real-time Monitoring:** Live container logs via WebSocket
+- 🖼️ **Image Management:** Pull and manage Docker images
+- 📈 **Container Stats:** CPU, memory, and network usage monitoring
+- 🧪 **Comprehensive Testing:** 49 total tests (27 backend + 22 frontend)
+- 🔒 **Security First:** Input validation, CORS configuration, security headers
+- 📦 **Production Ready:** Docker Compose deployment with best practices
 
 ---
 
 ## 🚀 Technologies Used
 
-- **Frontend:** React 18 + TypeScript, React Router, Testing Library, Tailwind CSS (optional)
-- **Backend:** FastAPI, Uvicorn, Docker SDK for Python, JWT Auth
-- **Realtime:** WebSocket for live container logs
-- **Testing:** Pytest (backend), Testing Library (frontend)
+- **Frontend:** React 18.3 + TypeScript, React Router 6.28, Testing Library, Tailwind CSS
+- **Backend:** FastAPI 0.120, Uvicorn 0.38, Docker SDK 7.1, JWT Auth
+- **Realtime:** WebSocket for live container logs with authentication
+- **Testing:** Pytest 8.4 (backend), Jest + Testing Library (frontend)
 - **DevOps:** Docker, Docker Compose, GitHub Actions CI
+- **Security:** Pydantic validation, bcrypt hashing, environment-based configuration
 
 ---
 
 ## ⚙️ How it Works & Architecture
 
-- **Frontend:** Single Page Application (SPA) React, built and served by Nginx in production.
-- **Backend:** REST API + WebSocket, JWT authentication, user and Docker container management.
-- **Communication:** The frontend communicates with the backend via API and WebSocket, using the Docker hostname (`http://backend:8000`) in production.
-- **Security:** The admin user is automatically created on first run if `users.json` does not exist. Change the password in production!
+- **Frontend:** Single Page Application (SPA) in React, built and served by Nginx in production
+- **Backend:** REST API + WebSocket, JWT authentication, Docker container management
+- **Communication:** Frontend ↔ Backend via HTTP API + WebSocket (authenticated)
+- **Security:** JWT tokens, password hashing, input validation, CORS configuration
+- **Testing:** Comprehensive test suite with 49 tests covering all major functionality
+
+---
+
+## 🔒 Security Features
+
+- ✅ JWT-based authentication with configurable secret keys
+- ✅ Bcrypt password hashing for user credentials
+- ✅ Input validation on all endpoints (Pydantic models)
+- ✅ CORS configuration with environment-based origins
+- ✅ WebSocket authentication required for log streaming
+- ✅ Container ID and image name validation (prevents injection)
+- ✅ Environment variable validation with security warnings
+- ✅ All dependencies scanned for vulnerabilities
+- ✅ Comprehensive security documentation (see [SECURITY.md](SECURITY.md))
+
+> ⚠️ **Important:** Change the default admin credentials (admin/admin) immediately in production!
 
 ---
 
@@ -29,13 +60,21 @@
 
 ### Backend (`backend/.env` or environment variables)
 
-- `DOCKERWEBUI_SECRET_KEY` **(required in production):** secret key for JWT signing.
-- (Optional) Other standard FastAPI/Uvicorn variables.
+- **`DOCKERWEBUI_SECRET_KEY`** *(required in production):* Secret key for JWT signing
+  ```bash
+  # Generate a secure key:
+  openssl rand -hex 32
+  ```
+- **`ALLOWED_ORIGINS`** *(optional):* Comma-separated list of allowed CORS origins
+  ```bash
+  export ALLOWED_ORIGINS="https://yourdomain.com,https://app.yourdomain.com"
+  ```
+- **`TRUSTED_HOSTS`** *(optional):* Comma-separated list of trusted host headers
 
 ### Frontend (`frontend/.env.production`)
 
-- `REACT_APP_API_URL`  
-  Backend URL (default for Docker Compose: `http://backend:8000`).
+- **`REACT_APP_API_URL`:** Backend URL  
+  Default for Docker Compose: `http://backend:8000`
 
 ---
 
@@ -49,8 +88,11 @@
    cd dockerwebui
    ```
 
-2. **(Optional) Set the secret key**
-   - Edit `docker-compose.yaml` or export the `DOCKERWEBUI_SECRET_KEY` variable for the backend.
+2. **Set the secret key (IMPORTANT for production)**
+   ```sh
+   export DOCKERWEBUI_SECRET_KEY=$(openssl rand -hex 32)
+   # Or edit docker-compose.yaml
+   ```
 
 3. **Start everything**
    ```sh
@@ -58,6 +100,11 @@
    ```
    - Frontend: [http://localhost:3080](http://localhost:3080)
    - Backend API: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+4. **Login with default credentials**
+   - Username: `admin`
+   - Password: `admin`
+   - **⚠️ Change immediately after first login!**
 
 ---
 
@@ -81,34 +128,127 @@ cd frontend
 npm install
 npm start
 ```
-- The frontend in dev mode calls the backend at `localhost:8000` by default.
-
----
 
 ## 🧪 Testing
 
-### Backend
+DockerWebUI includes comprehensive test coverage for both backend and frontend:
+
+### Backend Tests (27 tests)
 
 ```sh
 cd backend
-pytest
+pip install -r requirements.txt
+pytest -v
+
+# Run with coverage
+pytest --cov=. --cov-report=html
 ```
 
-### Frontend
+**Test Coverage:**
+- ✅ Authentication (login, registration, JWT validation)
+- ✅ Docker API (containers, images, stats, operations)
+- ✅ Input validation and error handling
+- ✅ Protected endpoint authorization
+
+### Frontend Tests (22 tests)
 
 ```sh
 cd frontend
+npm install
 npm test
+
+# Run in CI mode
+CI=true npm test
 ```
+
+**Test Coverage:**
+- ✅ Login component (form validation, authentication flow)
+- ✅ Dashboard (container listing, loading states, navigation)
+- ✅ Register component (user creation, error handling)
+- ✅ RequireAuth guard (route protection)
+- ✅ App routing
+
+### Continuous Integration
+
+Tests run automatically on every push and pull request via GitHub Actions:
+- Backend: pytest on Python 3.10
+- Frontend: Jest/Testing Library on Node 20
+- Build verification for Docker images
+
+---
+
+## 📚 Documentation
+
+- **[SECURITY.md](SECURITY.md)** - Security policy, best practices, and vulnerability reporting
+- **[SBOM.md](SBOM.md)** - Software Bill of Materials with complete dependency list
+- **[API Docs](http://localhost:8000/docs)** - Interactive API documentation (Swagger UI)
+
+---
+
+## 🔍 API Endpoints
+
+### Authentication
+- `POST /auth/login` - User login (returns JWT token)
+- `POST /auth/register` - Create first admin user (only if no users exist)
+
+### Docker Management
+- `GET /docker/nodes` - List available Docker nodes
+- `GET /docker/containers/{node}` - List all containers
+- `GET /docker/images/{node}` - List all images
+- `GET /docker/stats/{node}/{container_id}` - Get container statistics
+- `POST /docker/container/restart/{node}/{container_id}` - Restart container
+- `POST /docker/container/stop/{node}/{container_id}` - Stop container
+- `POST /docker/container/remove/{node}/{container_id}` - Remove container
+- `POST /docker/image/pull/{node}` - Pull Docker image
+- `DELETE /docker/image/remove/{node}/{image_id}` - Remove image
+
+### Health Check
+- `GET /` - API health status
+
+### WebSocket
+- `WS /ws/logs/{node}/{container_id}?token={jwt}` - Stream container logs in real-time
+
+All endpoints except health check and auth require JWT authentication via `Authorization: Bearer {token}` header.
 
 ---
 
 ## ℹ️ Useful Information
 
-- **First access:** The admin user is automatically created with username `admin` and password `admin` if `users.json` does not exist.
-- **User management:** After the first login, change the admin password!
-- **WebSocket:** Container logs are streamed in real time via WebSocket.
-- **API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **First access:** Admin user (admin/admin) is created automatically if no users exist
+- **User management:** Change the admin password immediately after first login
+- **WebSocket:** Container logs are streamed in real-time with authentication
+- **API Docs:** Interactive Swagger UI at [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Security:** See [SECURITY.md](SECURITY.md) for production deployment best practices
+
+---
+
+## 🏗️ Project Structure
+
+```
+dockerwebui/
+├── backend/
+│   ├── auth.py              # JWT authentication logic
+│   ├── docker_api.py        # Docker operations API
+│   ├── websocket_logs.py    # WebSocket log streaming
+│   ├── main.py              # FastAPI app entry point
+│   ├── requirements.txt     # Python dependencies
+│   ├── Dockerfile           # Backend container image
+│   ├── test_auth.py         # Authentication tests
+│   ├── test_docker_api.py   # Docker API tests
+│   └── test_main.py         # Integration tests
+├── frontend/
+│   ├── src/
+│   │   ├── pages/          # React page components
+│   │   ├── components/     # Reusable React components
+│   │   └── App.tsx         # Main app component
+│   ├── package.json        # Node.js dependencies
+│   ├── Dockerfile          # Frontend container image
+│   └── *.test.tsx          # Component tests
+├── docker-compose.yaml     # Multi-container orchestration
+├── SECURITY.md             # Security documentation
+├── SBOM.md                 # Software Bill of Materials
+└── README.md               # This file
+```
 
 ---
 
@@ -117,13 +257,37 @@ npm test
 Contributions, bug reports, and suggestions are welcome!  
 To contribute:
 
-1. Fork the repository.
-2. Create a branch for your feature or fix (`git checkout -b feature/your-feature`).
-3. Commit your changes.
-4. Push the branch and open a Pull Request.
+1. Fork the repository
+2. Create a branch for your feature or fix (`git checkout -b feature/your-feature`)
+3. Write tests for your changes
+4. Ensure all tests pass (`pytest` for backend, `npm test` for frontend)
+5. Commit your changes
+6. Push the branch and open a Pull Request
 
-For questions or ideas, open an Issue!
+For security vulnerabilities, please see [SECURITY.md](SECURITY.md) for responsible disclosure.
+
+---
+
+## 📝 Changelog
+
+### Version 1.0 (2025-10-31)
+- ✨ Initial release with comprehensive features
+- 🔒 Enhanced security (JWT auth, input validation, CORS configuration)
+- 🧪 Comprehensive test suite (49 tests total)
+- 📚 Complete documentation (README, SECURITY, SBOM)
+- 🐳 Production-ready Docker deployment
+- 📊 Real-time container monitoring and log streaming
+- 🔧 Environment-based configuration
+- ⚡ Performance optimizations
+
+---
+
+## 📄 License
+
+See [LICENSE](LICENSE) file for details.
 
 ---
 
 **Happy hacking with DockerWebUI! 🚀**
+
+For questions or support, please open an issue on GitHub.
