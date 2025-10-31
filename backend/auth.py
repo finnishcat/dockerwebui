@@ -21,13 +21,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
-def hash_password(password: str) -> str:
-    """Hash della password, troncata a 72 byte (limite bcrypt)."""
+
+def truncate_password(password: str) -> str:
     pw_bytes = password.encode('utf-8')
-    if len(pw_bytes) > 72:
-        pw_bytes = pw_bytes[:72]
-        password = pw_bytes.decode('utf-8', errors='ignore')
-    return pwd_context.hash(password)
+    if len(pw_bytes) <= 72:
+        return password
+    truncated = pw_bytes[:72]
+    while True:
+        try:
+            return truncated.decode('utf-8')
+        except UnicodeDecodeError:
+            truncated = truncated[:-1]
+
+def hash_password(password: str) -> str:
+    """Hash della password, troncata a 72 byte (limite bcrypt, robusto per Unicode)."""
+    return pwd_context.hash(truncate_password(password))
 
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
@@ -72,11 +80,7 @@ def save_users():
 
 def verify_password(plain_password, hashed_password):
     """Verify that the provided password matches the stored hash."""
-    pw_bytes = plain_password.encode('utf-8')
-    if len(pw_bytes) > 72:
-        pw_bytes = pw_bytes[:72]
-        plain_password = pw_bytes.decode('utf-8', errors='ignore')
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(truncate_password(plain_password), hashed_password)
 
 def get_user(username: str):
     """Return the user from the user database given the username."""
