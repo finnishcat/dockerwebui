@@ -21,12 +21,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
+def hash_password(password: str) -> str:
+    """Hash della password, troncata a 72 caratteri (limite bcrypt)."""
+    return pwd_context.hash(password[:72])
+
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
 def ensure_users_file():
     """Create a default users.json file with admin user if it does not exist (development only)."""
     if not os.path.exists(USERS_FILE):
-        default_password = pwd_context.hash("admin"[:72])
+        default_password = hash_password("admin")
         with open(USERS_FILE, "w") as f:
             json.dump([{
                 "username": "admin",
@@ -109,7 +113,7 @@ def register(request: RegisterRequest):
     if get_user(request.username):
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    hashed = pwd_context.hash(request.password[:72])
+    hashed = hash_password(request.password)
     user = {"username": request.username, "password": hashed, "role": "admin"}
     users_db.append(user)
     save_users()
