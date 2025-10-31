@@ -1,3 +1,5 @@
+import os
+os.environ["PASSLIB_BCRYPT_BACKEND"] = "builtin"
 from fastapi.testclient import TestClient
 from main import app
 import pytest
