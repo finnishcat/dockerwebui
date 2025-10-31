@@ -23,9 +23,12 @@ pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 
 def truncate_password(password: str) -> str:
-    pw_bytes = password.encode('utf-8')
+    if isinstance(password, bytes):
+        pw_bytes = password
+    else:
+        pw_bytes = password.encode('utf-8')
     if len(pw_bytes) <= 72:
-        return password
+        return password if isinstance(password, str) else pw_bytes.decode('utf-8', errors='ignore')
     truncated = pw_bytes[:72]
     while True:
         try:
