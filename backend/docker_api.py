@@ -59,7 +59,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError as e:
         logging.warning(f"JWT decode error: {e}")
         raise credentials_exception
-        raise credentials_exception
 
 def validate_node(node: str):
     """Validate the Docker node name (letters, numbers, underscore, max 32 chars)."""
@@ -82,8 +81,6 @@ def validate_image_id(image_id: str):
         raise HTTPException(status_code=400, detail="Invalid image ID format")
     return image_id
 
-pwd_context = None  # Not needed in this module
-
 @router.get("/nodes")
 def list_nodes():
     """Return the list of available Docker nodes."""
@@ -94,14 +91,6 @@ class ContainerInfo(BaseModel):
     name: str
     image: Optional[list[str]]
     status: str
-
-def validate_node(node: str):
-    """Validate the Docker node name (letters, numbers, underscore, max 32 chars)."""
-    if not re.match(r"^[a-zA-Z0-9_]{1,32}$", node):
-        raise HTTPException(status_code=400, detail="Invalid node name")
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
-    return node
 
 @router.get("/containers/{node}", response_model=List[ContainerInfo])
 def list_containers(node: str, user=Depends(get_current_user)):

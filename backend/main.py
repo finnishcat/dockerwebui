@@ -36,7 +36,7 @@ app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(docker_router, prefix="/docker", tags=["Docker"])
 
 # WebSocket logs realtime
-app.add_api_websocket_route("/ws/logs/{node}/{container_id}", websocket_endpoint)
+app.add_websocket_route("/ws/logs/{node}/{container_id}", websocket_endpoint)
 
 @app.get("/", tags=["Health"])
 def read_root():
