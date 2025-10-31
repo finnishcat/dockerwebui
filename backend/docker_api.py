@@ -6,7 +6,6 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from docker.errors import NotFound, APIError
-from passlib.context import CryptContext
 import os
 from typing import List, Optional
 import re
@@ -49,8 +48,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         return TokenData(username=username)
     except JWTError:
         raise credentials_exception
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 @router.get("/nodes")
 def list_nodes():

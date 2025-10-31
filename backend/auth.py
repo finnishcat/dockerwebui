@@ -14,14 +14,21 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use bcrypt_sha256 to avoid bcrypt 72-byte limitation and preserve entropy for long inputs
+pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+
+def hash_password(password: str) -> str:
+    """Hash password using configured pwd_context (bcrypt_sha256)."""
+    return pwd_context.hash(password)
+
 
 def ensure_users_file():
     """Create a default users.json file with admin user if it does not exist (development only)."""
     if not os.path.exists(USERS_FILE):
-        default_password = pwd_context.hash("admin")
+        # Create with a safe hash function that handles long inputs
+        default_password = hash_password("admin")
         with open(USERS_FILE, "w") as f:
             json.dump([{
                 "username": "admin",
@@ -30,10 +37,17 @@ def ensure_users_file():
             }], f, indent=2)
         logging.warning("Created default users.json with admin user (development only). Change the password in production!")
 
-ensure_users_file()
+# NOTE: ensure_users_file() is intentionally NOT called at import time to avoid import-side effects
+# Call ensure_users_file() during application startup so tests that import modules do not trigger hashing.
 
-with open(USERS_FILE) as f:
-    users_db = json.load(f)
+# Initialize users_db as an empty list to avoid import-time file reads
+users_db = []
+
+def load_users_db():
+    """Load the users database from the users.json file."""
+    global users_db
+    with open(USERS_FILE) as f:
+        users_db = json.load(f)
 
 def verify_password(plain_password, hashed_password):
     """Verify that the provided password matches the stored hash."""
@@ -66,7 +80,7 @@ def register(request: RegisterRequest):
     """Allow creation of the first admin user if no users exist."""
     if len(users_db) > 0:
         raise HTTPException(status_code=403, detail="Registration not allowed: a user already exists.")
-    hashed = pwd_context.hash(request.password)
+    hashed = hash_password(request.password)
     user = {"username": request.username, "password": hashed, "role": "admin"}
     users_db.append(user)
     with open(USERS_FILE, "w") as f:
