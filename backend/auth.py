@@ -31,6 +31,11 @@ def hash_password(password: str) -> str:
 
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
+def hash_password(password: str) -> str:
+    """Hash password using configured pwd_context (bcrypt_sha256)."""
+    return pwd_context.hash(password)
+
+
 def ensure_users_file():
     """Create a default users.json file with admin user if it does not exist (development only)."""
     if not os.path.exists(USERS_FILE):
@@ -43,7 +48,11 @@ def ensure_users_file():
             }], f, indent=2)
         logging.warning("⚠️  Created default users.json with admin/admin credentials. Change immediately in production!")
 
-ensure_users_file()
+# NOTE: ensure_users_file() is intentionally NOT called at import time to avoid import-side effects
+# Call ensure_users_file() during application startup so tests that import modules do not trigger hashing.
+
+# Initialize users_db as an empty list to avoid import-time file reads
+users_db = []
 
 def load_users():
     """Load users from file."""
