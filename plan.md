@@ -55,9 +55,19 @@ DockerWebUI è un progetto per la gestione di container Docker via web (FastAPI 
 - [x] Aggiunta HEALTHCHECK nel docker-compose per tutti i servizi
 - [x] Aggiunta logging strutturato su tutti gli endpoint
 
-### Fase 8: Test e Verifica
-- [ ] Verifica che i test backend passino `pytest`
-- [ ] Verifica build frontend `npm run build`
+### Fase 8: CI Pipeline Fix
+- [x] Fix bcrypt/passlib incompatibility (rimosso `[bcrypt]` extra)
+- [x] Aggiornato Node.js 20→22, Python 3.10→3.11
+- [x] Aggiunto `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` env
+- [x] Aggiunto `pip install --upgrade pip` step
+- [x] Aggiunto pytest.ini per filtrare deprecation warning
+- [x] React Router v7 future flags in BrowserRouter
+- [x] Login.test.tsx — heading regex corretto (`/sign in/i`)
+- [x] Login.tsx — rimosso Unsplash deprecato
+
+### Fase 9: Test e Verifica
+- [x] Verifica che i test backend passino `pytest` (10/10)
+- [ ] Verifica build frontend `npm run build` (richiede Node.js)
 - [ ] Test manuale import/export immagini
 
 ---

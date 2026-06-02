@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
 import Login from "./pages/Login.tsx";
 import Register from "./pages/Register.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
@@ -38,7 +38,7 @@ function NavBar() {
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="min-h-screen bg-gray-50">
         <NavBar />
         <Routes>
@@ -49,7 +49,7 @@ function App() {
           <Route path="/images" element={<RequireAuth><Images /></RequireAuth>} />
         </Routes>
       </div>
-    </Router>
+    </BrowserRouter>
   );
 }
 

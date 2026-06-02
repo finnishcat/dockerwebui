@@ -103,6 +103,36 @@ Il frontend e i test facevano riferimento a endpoint inesistenti.
 - **Cosa**: Aggiunta variabile DOCKERWEBUI_NODES per configurazione nodi
 - **Perché**: Supporto Podman e nodi remoti
 
+### Modifica 15: Fix bcrypt/passlib incompatibility
+- **File**: `backend/requirements.txt`
+- **Cosa**: Rimosso `[bcrypt]` extra da passlib, bcrypt pinato esplicitamente
+- **Perché**: passlib[bcrypt] installa bcrypt 5.x che è incompatibile con passlib 1.7.4.
+  Causava `ValueError: password cannot be longer than 72 bytes`.
+- **Fix**: `passlib>=1.7.4,<2.0.0` + `bcrypt>=4.0.0,<4.1.0`
+
+### Modifica 16: CI workflow - action versions e Node.js
+- **File**: `.github/workflows/ci.yml`
+- **Cosa**: Aggiornato Node.js da 20 a 22, Python da 3.10 a 3.11, aggiunto
+  `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`, aggiunto `pip install --upgrade pip`
+- **Perché**: Node.js 20 è deprecato, le action GitHub richiedono Node.js 24
+  dal 16/06/2026. Python 3.11 è più recente.
+
+### Modifica 17: React Router future flags
+- **File**: `frontend/src/App.tsx`
+- **Cosa**: Aggiunti `future={{ v7_startTransition: true, v7_relativeSplatPath: true }}`
+  a BrowserRouter
+- **Perché**: Sopprimere i deprecation warning di React Router v6→v7
+
+### Modifica 18: pytest.ini per filtrare warning
+- **File**: `backend/pytest.ini`
+- **Cosa**: Creato file di configurazione pytest per filtrare deprecation warning
+- **Perché**: Sopprimere `StarletteDeprecationWarning: httpx with testclient`
+
+### Modifica 19: Login test - heading regex corretto
+- **File**: `frontend/src/pages/Login.test.tsx`
+- **Cosa**: Cambiato `/login/i` → `/sign in/i`
+- **Perché**: Il titolo è "Sign in to DockerWebUI", non contiene "login"
+
 ---
 
 ## Stato Finale
@@ -112,3 +142,5 @@ Il frontend e i test facevano riferimento a endpoint inesistenti.
 - Rate limiting su auth
 - Logout e validazione token
 - UI navigabile e completa
+- CI pipeline fixata (bcrypt, tests, deprecazioni)
+- React Router future-proof (v7 flags)
