@@ -1,8 +1,8 @@
-// pages/ContainerDetails.tsx - Dettagli container + log realtime + azioni + stats
 import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const WS_URL = process.env.REACT_APP_WS_URL || API_URL.replace(/^http/, "ws");
 
 const ContainerDetails = () => {
   const { id } = useParams();
@@ -58,7 +58,7 @@ const ContainerDetails = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    ws.current = new WebSocket(`ws://localhost:8000/ws/logs/local/${id}?token=${token}`);
+    ws.current = new WebSocket(`${WS_URL}/ws/logs/local/${id}?token=${token}`);
     ws.current.onmessage = (e) => setLogs((prev) => prev + e.data + "\n");
     fetchStats();
     const interval = setInterval(fetchStats, 5000);
@@ -66,7 +66,6 @@ const ContainerDetails = () => {
       ws.current?.close();
       clearInterval(interval);
     };
-    // eslint-disable-next-line
   }, [id]);
 
   return (

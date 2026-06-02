@@ -24,6 +24,8 @@ jobs:
         run: rm -f users.json
       - name: Run backend tests
         run: pytest
+        env:
+          DOCKERWEBUI_SECRET_KEY: ci-test-secret-key
 
   frontend:
     runs-on: ubuntu-latest

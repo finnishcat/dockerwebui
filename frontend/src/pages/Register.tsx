@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -11,7 +13,7 @@ const Register = () => {
   const handleRegister = async () => {
     setError(null);
     setSuccess(null);
-    const res = await fetch("http://localhost:8000/auth/register", {
+    const res = await fetch(`${API_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })
@@ -38,14 +40,14 @@ const Register = () => {
         <input
           type="text"
           placeholder="Username"
-          className="mb-3 w-full p-2 rounded"
+          className="mb-3 w-full p-2 rounded border"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
         <input
           type="password"
           placeholder="Password"
-          className="mb-3 w-full p-2 rounded"
+          className="mb-3 w-full p-2 rounded border"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />

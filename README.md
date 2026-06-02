@@ -1,129 +1,111 @@
-# 🚢 DockerWebUI
+# DockerWebUI
 
 ![CI](https://github.com/finnishcat/dockerwebui/actions/workflows/ci.yml/badge.svg)
 
-**DockerWebUI** is a modern webapp to manage Docker containers with a graphical interface, designed to be simple, fast, and ready to use both locally and in production.
+DockerWebUI is a lightweight web UI to manage Docker containers (REST API + SPA frontend).
 
----
+## Features
 
-## 🚀 Technologies Used
+- **Container management**: list, restart, stop, remove containers
+- **Image management**: list, pull, remove images
+- **Image export/import**: download images as `.tar` via `docker save`, upload images via `docker load`
+- **Realtime logs**: WebSocket streaming of container logs
+- **Container stats**: live CPU, memory, and network I/O metrics
+- **Authentication**: JWT-based login with bcrypt password hashing
+- **Rate limiting**: login and registration endpoints protected against brute force
+- **Socket proxy**: backend never mounts the Docker socket directly; uses `docker-socket-proxy`
+- **Podman compatible**: configurable nodes via `DOCKERWEBUI_NODES` environment variable
+- **Healthchecks**: all services include Docker health checks
 
-- **Frontend:** React 18 + TypeScript, React Router, Testing Library, Tailwind CSS (optional)
-- **Backend:** FastAPI, Uvicorn, Docker SDK for Python, JWT Auth
-- **Realtime:** WebSocket for live container logs
-- **Testing:** Pytest (backend), Testing Library (frontend)
-- **DevOps:** Docker, Docker Compose, GitHub Actions CI
+## Security
 
----
+- The backend no longer mounts `/var/run/docker.sock` directly. The stack includes `docker-socket-proxy` and the backend talks to it via `DOCKER_HOST`.
+- `DOCKERWEBUI_SECRET_KEY` is required in production (fail-fast on default key).
+- CORS is configurable via `ALLOWED_ORIGINS` (no wildcard by default).
+- Rate limiting on `/auth/login` (10/min) and `/auth/register` (5/hour).
+- Input sanitization on all Docker API endpoints.
+- JWT token expiry checked on every request.
+- `.dockerignore` excludes `users.json` from the Docker build context.
 
-## ⚙️ How it Works & Architecture
+## Environment variables
 
-- **Frontend:** Single Page Application (SPA) React, built and served by Nginx in production.
-- **Backend:** REST API + WebSocket, JWT authentication, user and Docker container management.
-- **Communication:** The frontend communicates with the backend via API and WebSocket, using the Docker hostname (`http://backend:8000`) in production.
-- **Security:** The admin user is automatically created on first run if `users.json` does not exist. Change the password in production!
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DOCKERWEBUI_SECRET_KEY` | Yes | `dev-secret-key` | JWT signing key (fail-fast if default) |
+| `ALLOWED_ORIGINS` | No | `http://localhost:3080` | Comma-separated CORS origins |
+| `DOCKER_HOST` | No | `unix:///var/run/docker.sock` | Docker daemon URL |
+| `DOCKERWEBUI_NODES` | No | `{"local":"unix:///var/run/docker.sock"}` | JSON map of node name to Docker URL (for Podman/remote) |
+| `REACT_APP_API_URL` | No | `http://localhost:8000` | Backend API URL (frontend build-time) |
+| `REACT_APP_WS_URL` | No | `ws://localhost:8000` | WebSocket URL (frontend build-time) |
 
----
+## Quick start
 
-## 🛠️ Environment Variables & Configuration
+```bash
+git clone https://github.com/finnishcat/dockerwebui.git
+cd dockerwebui
 
-### Backend (`backend/.env` or environment variables)
+export DOCKERWEBUI_SECRET_KEY="$(openssl rand -hex 32)"
+export ALLOWED_ORIGINS="http://localhost:3080"
 
-- `DOCKERWEBUI_SECRET_KEY` **(required in production):** secret key for JWT signing.
-- (Optional) Other standard FastAPI/Uvicorn variables.
-
-### Frontend (`frontend/.env.production`)
-
-- `REACT_APP_API_URL`  
-  Backend URL (default for Docker Compose: `http://backend:8000`).
-
----
-
-## 📦 How to Start the Application
-
-### 🔥 Quick Start with Docker Compose
-
-1. **Clone the repository**
-   ```sh
-   git clone https://github.com/finnishcat/dockerwebui.git
-   cd dockerwebui
-   ```
-
-2. **(Optional) Set the secret key**
-   - Edit `docker-compose.yaml` or export the `DOCKERWEBUI_SECRET_KEY` variable for the backend.
-
-3. **Start everything**
-   ```sh
-   docker-compose up --build
-   ```
-   - Frontend: [http://localhost:3080](http://localhost:3080)
-   - Backend API: [http://localhost:8000/docs](http://localhost:8000/docs)
-
----
-
-### 🧑‍💻 Manual Start (Development)
-
-#### Backend
-
-```sh
-cd backend
-pip install -r requirements.txt
-export DOCKERWEBUI_SECRET_KEY=your-secret-key  # Linux/macOS
-# or
-set DOCKERWEBUI_SECRET_KEY=your-secret-key     # Windows
-uvicorn main:app --reload
+docker compose -f docker-compose.yaml up -d --build
 ```
 
-#### Frontend
+The frontend will be available on port `3080` and the backend on `8000`.
+
+## Admin user / bootstrap
+
+- On first run, if `users.json` does not exist, a default `admin` user is created. **Change the password immediately**.
+- Safer workflow: register via API (only allowed if no users exist):
 
 ```sh
-cd frontend
-npm install
-npm start
-```
-- The frontend in dev mode calls the backend at `localhost:8000` by default.
-
----
-
-## 🧪 Testing
-
-### Backend
-
-```sh
-cd backend
-pytest
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"StrongPa$$w0rd"}' \
+  http://localhost:8000/auth/register
 ```
 
-### Frontend
+## API endpoints
 
-```sh
-cd frontend
-npm test
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/auth/login` | User login | No |
+| POST | `/auth/register` | Register first admin | No (rate limited) |
+| GET | `/docker/containers/{node}` | List containers | JWT |
+| GET | `/docker/images/{node}` | List images | JWT |
+| GET | `/docker/stats/{node}/{id}` | Container stats (CPU/RAM/Net) | JWT |
+| POST | `/docker/container/restart/{node}/{id}` | Restart container | JWT |
+| POST | `/docker/container/stop/{node}/{id}` | Stop container | JWT |
+| POST | `/docker/container/remove/{node}/{id}` | Remove container | JWT |
+| POST | `/docker/image/pull/{node}` | Pull image from registry | JWT |
+| DELETE | `/docker/image/remove/{node}/{id}` | Remove image | JWT |
+| GET | `/docker/image/save/{node}/{id}` | **Export image as `.tar`** | JWT |
+| POST | `/docker/image/load/{node}` | **Import image from `.tar`** | JWT |
+| WS | `/ws/logs/{node}/{id}` | Realtime container logs | JWT (query) |
+
+## Podman support
+
+Podman is API-compatible with Docker. Set `DOCKERWEBUI_NODES` to connect:
+
+```bash
+export DOCKERWEBUI_NODES='{"podman":"tcp://podman-host:2375"}'
 ```
 
----
+Or use Podman's socket directly:
 
-## ℹ️ Useful Information
+```bash
+export DOCKERWEBUI_NODES='{"local":"unix:///run/podman/podman.sock"}'
+```
 
-- **First access:** The admin user is automatically created with username `admin` and password `admin` if `users.json` does not exist.
-- **User management:** After the first login, change the admin password!
-- **WebSocket:** Container logs are streamed in real time via WebSocket.
-- **API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+## Image export/import
 
----
+- **Export**: click the Export button on any image in the Images page to download it as a `.tar` archive.
+- **Import**: use the Import button to upload a `.tar` archive (e.g. from `docker save`). The image is loaded via `docker load`.
 
-## 🤝 Contributing
+## WebSocket logs
 
-Contributions, bug reports, and suggestions are welcome!  
-To contribute:
+```
+wscat -c "ws://localhost:8000/ws/logs/local/<container_id>?token=<JWT>"
+```
 
-1. Fork the repository.
-2. Create a branch for your feature or fix (`git checkout -b feature/your-feature`).
-3. Commit your changes.
-4. Push the branch and open a Pull Request.
+## Contributing
 
-For questions or ideas, open an Issue!
-
----
-
-**Happy hacking with DockerWebUI! 🚀**
+Contributions are welcome. Please open issues or PRs.

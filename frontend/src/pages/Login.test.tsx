@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 test("renders login form", () => {
   render(<BrowserRouter><Login /></BrowserRouter>);
   // search title
-  expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument();
   // search username
   expect(screen.getByPlaceholderText(/Username/i)).toBeInTheDocument();
   // search password

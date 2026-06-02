@@ -1,6 +1,7 @@
-// pages/Dashboard.tsx - Dashboard base con container list
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
 const Dashboard = () => {
   const [containers, setContainers] = useState([]);
@@ -13,7 +14,6 @@ const Dashboard = () => {
       setLoading(true);
       try {
         const token = localStorage.getItem("token");
-        const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
         const res = await fetch(`${API_URL}/docker/containers/local`, {
           headers: { Authorization: `Bearer ${token}` }
         });

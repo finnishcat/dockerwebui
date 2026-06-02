@@ -1,212 +1,296 @@
-# docker_api.py - Docker API wrapper
-from fastapi import APIRouter, Depends, HTTPException, status
-from docker import DockerClient
-import docker
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from docker.errors import NotFound, APIError
-from passlib.context import CryptContext
+import docker
 import os
-from typing import List, Optional
+import json
 import re
+import io
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Client Docker disponibili
-clients = {
-    "local": docker.from_env(),
-    # Aggiungi altri nodi se necessario
-}
-
-# OAuth2 schema
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-# Configurazione JWT
 SECRET_KEY = os.environ.get("DOCKERWEBUI_SECRET_KEY", "dev-secret-key")
 ALGORITHM = "HS256"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-class ImagePullRequest(BaseModel):
-    image: str
+ALLOWED_IMAGE_PATTERN = re.compile(r'^[a-zA-Z0-9._\-/:]+$')
+ALLOWED_ID_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_.\-:]*$')
 
-# Modello utente base
-class TokenData(BaseModel):
-    username: str
+DEFAULT_NODES = {"local": "unix:///var/run/docker.sock"}
+raw_nodes = os.environ.get("DOCKERWEBUI_NODES", "")
+clients = {}
+try:
+    if raw_nodes:
+        parsed = json.loads(raw_nodes)
+        for name, url in parsed.items():
+            clients[name] = docker.DockerClient(base_url=url)
+    else:
+        clients["local"] = docker.from_env()
+except Exception as e:
+    logger.warning("Failed to initialize custom nodes, falling back to local: %s", e)
+    clients["local"] = docker.from_env()
 
-# Verifica e decodifica del token JWT
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Verify and decode the JWT token, returning user data."""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Credenziali non valide",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+
+def verify_token(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
+        username = payload.get("sub")
+        role = payload.get("role")
         if username is None:
-            raise credentials_exception
-        return TokenData(username=username)
+            raise HTTPException(status_code=401, detail="Invalid token: missing subject")
+        return {"username": username, "role": role}
     except JWTError:
-        raise credentials_exception
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-@router.get("/nodes")
-def list_nodes():
-    """Return the list of available Docker nodes."""
-    return list(clients.keys())
+def sanitize_id(value: str) -> str:
+    if not ALLOWED_ID_PATTERN.match(value):
+        raise HTTPException(status_code=400, detail=f"Invalid identifier: {value}")
+    return value
 
-class ContainerInfo(BaseModel):
-    id: str
-    name: str
-    image: Optional[list[str]]
-    status: str
 
-def validate_node(node: str):
-    """Validate the Docker node name (letters, numbers, underscore, max 32 chars)."""
-    if not re.match(r"^[a-zA-Z0-9_]{1,32}$", node):
-        raise HTTPException(status_code=400, detail="Invalid node name")
+def sanitize_image_name(value: str) -> str:
+    if not ALLOWED_IMAGE_PATTERN.match(value):
+        raise HTTPException(status_code=400, detail=f"Invalid image name: {value}")
+    return value
+
+
+def get_client(node: str):
     if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
-    return node
+        raise HTTPException(status_code=404, detail=f"Node '{node}' not found")
+    return clients[node]
 
-@router.get("/containers/{node}", response_model=List[ContainerInfo])
-def list_containers(node: str, user=Depends(get_current_user)):
-    node = validate_node(node)
-    """Return the list of containers for the specified node."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
+
+@router.get("/containers/{node}")
+def list_containers(node: str, all: bool = True, user=Depends(verify_token)):
+    sanitize_id(node)
+    client = get_client(node)
     try:
-        containers = clients[node].containers.list(all=True)
-        return [{
-            "id": c.id,
-            "name": c.name,
-            "image": c.image.tags,
-            "status": c.status
-        } for c in containers]
+        containers = client.containers.list(all=all)
+        result = []
+        for c in containers:
+            result.append({
+                "id": c.id,
+                "name": c.name,
+                "image": c.image.tags if c.image else [],
+                "status": c.status,
+                "created": c.attrs.get("Created", ""),
+                "ports": c.attrs.get("NetworkSettings", {}).get("Ports", {}),
+            })
+        return result
     except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error listing containers")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-class ImageInfo(BaseModel):
-    id: str
-    repo_tags: Optional[list[str]]
-    size: int
 
-@router.get("/images/{node}", response_model=List[ImageInfo])
-def list_images(node: str, user=Depends(get_current_user)):
-    """Return the list of Docker images for the specified node."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
+@router.get("/images/{node}")
+def list_images(node: str, user=Depends(verify_token)):
+    sanitize_id(node)
+    client = get_client(node)
     try:
-        images = clients[node].images.list()
-        return [{
-            "id": img.id,
-            "repo_tags": img.tags,
-            "size": img.attrs.get("Size", 0)
-        } for img in images]
-    except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        images = client.images.list(all=False)
+        result = []
+        for img in images:
+            result.append({
+                "id": img.id,
+                "repo_tags": img.tags or [],
+                "size": img.attrs.get("Size", 0),
+                "created": img.attrs.get("Created", ""),
+            })
+        return result
+    except APIError:
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error listing images")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-class ActionResponse(BaseModel):
-    status: str
 
-@router.post("/image/pull/{node}", response_model=ActionResponse)
-def pull_image(node: str, body: ImagePullRequest, user=Depends(get_current_user)):
-    """Pull a new Docker image."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
+@router.get("/stats/{node}/{container_id}")
+def container_stats(node: str, container_id: str, user=Depends(verify_token)):
+    sanitize_id(node)
+    sanitize_id(container_id)
+    client = get_client(node)
     try:
-        clients[node].images.pull(body.image)
-        return {"status": "ok"}
-    except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.delete("/image/remove/{node}/{image_id}", response_model=ActionResponse)
-def remove_image(node: str, image_id: str, user=Depends(get_current_user)):
-    """Remove a Docker image from the specified node."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
-    try:
-        clients[node].images.remove(image=image_id, force=True)
-        return {"status": "ok"}
-    except NotFound:
-        raise HTTPException(status_code=404, detail="Image not found")
-    except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-class StatsResponse(BaseModel):
-    cpu: float
-    memory_usage: float
-    memory_limit: float
-    network_rx: str
-    network_tx: str
-
-@router.get("/stats/{node}/{container_id}", response_model=StatsResponse)
-def container_stats(node: str, container_id: str, user=Depends(get_current_user)):
-    """Return usage statistics (CPU, RAM, network) for a container."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
-    try:
-        container = clients[node].containers.get(container_id)
+        container = client.containers.get(container_id)
         stats = container.stats(stream=False)
         cpu_delta = stats["cpu_stats"]["cpu_usage"]["total_usage"] - stats["precpu_stats"]["cpu_usage"]["total_usage"]
         system_delta = stats["cpu_stats"]["system_cpu_usage"] - stats["precpu_stats"]["system_cpu_usage"]
-        cpu = (cpu_delta / system_delta) * len(stats["cpu_stats"]["cpu_usage"]["percpu_usage"]) * 100 if system_delta > 0 else 0
-        mem_usage = stats["memory_stats"]["usage"] / 1024 / 1024
-        mem_limit = stats["memory_stats"]["limit"] / 1024 / 1024
-        net_rx = sum(i["rx_bytes"] for i in stats.get("networks", {}).values()) / 1024
-        net_tx = sum(i["tx_bytes"] for i in stats.get("networks", {}).values()) / 1024
+        num_cpus = stats["cpu_stats"]["online_cpus"] or 1
+        cpu_percent = 0.0
+        if system_delta > 0 and cpu_delta > 0:
+            cpu_percent = (cpu_delta / system_delta) * num_cpus * 100.0
+        mem_stats = stats.get("memory_stats", {})
+        mem_usage = mem_stats.get("usage", 0)
+        mem_limit = mem_stats.get("limit", 1)
+        mem_usage_mb = round(mem_usage / (1024 * 1024), 2)
+        mem_limit_mb = round(mem_limit / (1024 * 1024), 2)
+        net_stats = stats.get("networks", {})
+        rx = sum(n.get("rx_bytes", 0) for n in net_stats.values())
+        tx = sum(n.get("tx_bytes", 0) for n in net_stats.values())
         return {
-            "cpu": cpu,
-            "memory_usage": round(mem_usage, 2),
-            "memory_limit": round(mem_limit, 2),
-            "network_rx": f"{net_rx:.2f} KB",
-            "network_tx": f"{net_tx:.2f} KB"
+            "cpu": round(cpu_percent, 2),
+            "memory_usage": mem_usage_mb,
+            "memory_limit": mem_limit_mb,
+            "network_rx": rx,
+            "network_tx": tx,
         }
     except NotFound:
         raise HTTPException(status_code=404, detail="Container not found")
-    except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except APIError:
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error fetching stats")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/container/restart/{node}/{container_id}", response_model=ActionResponse)
-def restart_container(node: str, container_id: str, user=Depends(get_current_user)):
-    """Restart a Docker container."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
+
+@router.post("/container/restart/{node}/{container_id}")
+def restart_container(node: str, container_id: str, user=Depends(verify_token)):
+    sanitize_id(node)
+    sanitize_id(container_id)
+    client = get_client(node)
     try:
-        container = clients[node].containers.get(container_id)
+        container = client.containers.get(container_id)
         container.restart()
-        return {"status": "ok"}
+        return {"msg": f"Container {container_id} restarted"}
     except NotFound:
         raise HTTPException(status_code=404, detail="Container not found")
-    except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except APIError:
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error restarting container")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/container/stop/{node}/{container_id}", response_model=ActionResponse)
-def stop_container(node: str, container_id: str, user=Depends(get_current_user)):
-    """Stop a Docker container."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
+
+@router.post("/container/stop/{node}/{container_id}")
+def stop_container(node: str, container_id: str, user=Depends(verify_token)):
+    sanitize_id(node)
+    sanitize_id(container_id)
+    client = get_client(node)
     try:
-        container = clients[node].containers.get(container_id)
+        container = client.containers.get(container_id)
         container.stop()
-        return {"status": "ok"}
+        return {"msg": f"Container {container_id} stopped"}
     except NotFound:
         raise HTTPException(status_code=404, detail="Container not found")
-    except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except APIError:
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error stopping container")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/container/remove/{node}/{container_id}", response_model=ActionResponse)
-def remove_container(node: str, container_id: str, user=Depends(get_current_user)):
-    """Remove a Docker container."""
-    if node not in clients:
-        raise HTTPException(status_code=404, detail="Node not found")
+
+@router.post("/container/remove/{node}/{container_id}")
+def remove_container(node: str, container_id: str, force: bool = True, user=Depends(verify_token)):
+    sanitize_id(node)
+    sanitize_id(container_id)
+    client = get_client(node)
     try:
-        container = clients[node].containers.get(container_id)
-        container.remove(force=True)
-        return {"status": "ok"}
+        container = client.containers.get(container_id)
+        container.remove(force=force)
+        return {"msg": f"Container {container_id} removed"}
     except NotFound:
         raise HTTPException(status_code=404, detail="Container not found")
+    except APIError:
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error removing container")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+class PullRequest(BaseModel):
+    image: str
+
+
+@router.post("/image/pull/{node}")
+def pull_image(node: str, req: PullRequest, user=Depends(verify_token)):
+    sanitize_id(node)
+    image_name = sanitize_image_name(req.image)
+    client = get_client(node)
+    try:
+        for line in client.images.pull(image_name, stream=True, decode=True):
+            if "error" in line:
+                raise HTTPException(status_code=400, detail=line["error"])
+        return {"msg": f"Image {image_name} pulled successfully"}
+    except HTTPException:
+        raise
     except APIError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=502, detail=f"Docker API error: {e}")
+    except Exception as e:
+        logger.exception("Error pulling image")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.delete("/image/remove/{node}/{image_id}")
+def remove_image(node: str, image_id: str, force: bool = False, user=Depends(verify_token)):
+    sanitize_id(node)
+    sanitize_id(image_id)
+    client = get_client(node)
+    try:
+        client.images.remove(image_id, force=force)
+        return {"msg": f"Image {image_id} removed"}
+    except NotFound:
+        raise HTTPException(status_code=404, detail="Image not found")
+    except APIError:
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error removing image")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/image/save/{node}/{image_id}")
+def save_image(node: str, image_id: str, user=Depends(verify_token)):
+    sanitize_id(node)
+    sanitize_id(image_id)
+    if node not in clients:
+        raise HTTPException(status_code=404, detail=f"Node '{node}' not found")
+    client = get_client(node)
+    try:
+        api_client = client.api
+        chunks = list(api_client.get_image(image_id))
+        tar_data = b"".join(chunks)
+        safe_name = image_id.replace(":", "_").replace("/", "_").replace("@", "_")
+        return StreamingResponse(
+            io.BytesIO(tar_data),
+            media_type="application/x-tar",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_name}.tar"',
+            }
+        )
+    except NotFound:
+        raise HTTPException(status_code=404, detail="Image not found")
+    except APIError:
+        raise HTTPException(status_code=502, detail="Docker API error")
+    except Exception as e:
+        logger.exception("Error saving image")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/image/load/{node}")
+async def load_image(node: str, file: UploadFile = File(...), user=Depends(verify_token)):
+    sanitize_id(node)
+    if node not in clients:
+        raise HTTPException(status_code=404, detail=f"Node '{node}' not found")
+    client = get_client(node)
+    try:
+        content = await file.read()
+        api_client = client.api
+        result = api_client.load_image(io.BytesIO(content))
+        image_ids = []
+        for item in result:
+            if isinstance(item, dict) and item.get("status"):
+                image_ids.append(item["status"])
+        loaded = ", ".join(image_ids) if image_ids else "image loaded"
+        return {"msg": f"Image loaded: {loaded}"}
+    except APIError as e:
+        raise HTTPException(status_code=502, detail=f"Docker API error: {e}")
+    except Exception as e:
+        logger.exception("Error loading image")
+        raise HTTPException(status_code=500, detail="Internal server error")
